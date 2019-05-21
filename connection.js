@@ -18,7 +18,7 @@ var inquirer = require("inquirer");
 
   connection.connect(function (err) {
     if (err) throw err;
-    //console.log("connected as id " + connection.threadId + "\n");
+    console.log("connected as id " + connection.threadId + "\n");
 
   });
   
