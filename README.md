@@ -1,6 +1,7 @@
 # Amazon-Store
 
 https://ibb.co/mTRXLDB
+[IMG]http://i67.tinypic.com/eqnmsn.png[/IMG]
 
 
 https://ibb.co/hZ93Dkz
