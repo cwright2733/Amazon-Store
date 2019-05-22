@@ -1,252 +1,147 @@
-var inquirer = require("inquirer");
-var Table = require('cli-table2');
-var connection = require("./Connection");
-var clrScr = require("./ClearScreen");
-var formatJS = require("./FormatJS");
-var validateNum = require("./ValidateJS");
+// Pull in required dependencies
+var inquirer = require('inquirer');
+var mysql = require('mysql');
 
-var fmtStr = new formatJS();
-var validateNm = new validateNum();
-var options = ['View Products For Sale', 'View Low Inventory', 'Add to Inventory', 'Add New Product', 'Exit'];
-var callFunctions = [displayProducts, displayLowInventory, addStock, prompAddProduct, connection.endConnection];
+// Define the MySQL connection parameters
+var connection = mysql.createConnection({
+	host: 'localhost',
+	port: 3306,
 
-clrScr();
-var dept_option = [];
-getDepartments(dept_option);
+	// Your username
+	user: 'root',
 
-startSelection();
+	// Your password
+	password: 'Rangeispuree1!',
+	database: 'bamazon'
+});
 
-function startSelection() {
-    console.log("\n Amazon Manager Module");
-    console.log(" ---------------------------------------------------------\n");
-    selectOptions();
-};
+// validateInput makes sure that the user is supplying only positive integers for their inputs
+function validateInput(value) {
+	var integer = Number.isInteger(parseFloat(value));
+	var sign = Math.sign(value);
 
-function selectOptions() {
-    inquirer.prompt([{
-        type: 'list',
-        name: 'option',
-        message: 'Select Options: ',
-        choices: options
-    }
-    ]).then(function (answer) {
-        if (options.indexOf(answer.option) !== -1) {
-            gotoFunction = callFunctions[options.indexOf(answer.option)];
-            clrScr();
-            gotoFunction();
-        }
-
-    });
-};
-
-function displayProducts() {
-    var table = new Table({
-        head: ['id', 'Name', 'Price', 'Inventory']
-        , colWidths: [6, 20, 15, 15]
-        , style: { compact: true, 'padding-left': 1 }
-    });
-    connection.query("SELECT * FROM products", function (err, res) {
-        clrScr();
-        console.log("\n Products For Sale");
-        console.log(" ---------------------------------------------------------\n");
-        if (err) throw err;
-        for (var i = 0; i < res.length; i++) {
-            table.push(
-                [{ hAlign: 'right', content: res[i].product_id }, res[i].product_name, { hAlign: 'right', content: fmtStr.formatFloat(res[i].price) }, { hAlign: 'right', content: fmtStr.formatFloat(res[i].stock_quantity) }]);
-
-        }
-        console.log(table.toString());
-        startSelection();
-    });
-};
-
-function displayLowInventory() {
-    var table = new Table({
-        head: ['id', 'Name', 'Price', 'Inventory']
-        , colWidths: [6, 20, 15, 15]
-        , style: { compact: true, 'padding-left': 1 }
-    });
-    connection.query("SELECT * FROM products", function (err, res) {
-        clrScr();
-        console.log("\n Products With Low Inventory");
-        console.log(" ---------------------------------------------------------\n");
-        if (err) throw err;
-        for (var i = 0; i < res.length; i++) {
-            if (res[i].stock_quantity < 20) {
-                table.push(
-                    [{ hAlign: 'right', content: res[i].product_id }, res[i].product_name, { hAlign: 'right', content: fmtStr.formatFloat(res[i].price) }, { hAlign: 'right', content: res[i].stock_quantity }]);
-
-            }
-        }
-        console.log(table.toString());
-        startSelection();
-    });
-};
-
-function addStock() {
-    console.log("\n Add Inventory");
-    console.log(" ---------------------------------------------------------\n");
-    inquirer.prompt([
-        {
-            name: "id",
-            type: "input",
-            message: "Enter Product ID : ",
-            validate: validateNm.validateInt
-        },
-        {
-            name: "addStock_qty",
-            type: "input",
-            message: "How many would you like to add? : ",
-            validate: validateNm.validateInt
-        }
-
-    ]).then(function (answer) {
-
-        var itemid = answer.id;
-        var addQty = answer.addStock_qty;
-        processStockQuantity(itemid, addQty);
-    });
-};
-
-function processStockQuantity(itemid, addqty) {
-    var query = connection.query("SELECT * FROM products WHERE product_id=?", [itemid], function (err, res) {
-        if (!err) {
-            if (res.length > 0) {
-                updateProduct(itemid, addqty, res[0].stock_quantity, res[0].product_name);
-            }
-            else {
-                console.log("\033[31m", " Item not found.. Try Again!!", "\x1b[0m\n");
-                addStock();
-            }
-        }
-
-    });
-};
-
-function updateProduct(itemid, addQty, current_stock, product) {
-    var query = connection.query(
-        "UPDATE products SET ? WHERE ?",
-        [
-            {
-                stock_quantity: parseInt(current_stock) + parseInt(addQty)
-            },
-            {
-                product_id: itemid
-            }
-        ],
-        function (err, res) {
-            if (err) throw err;
-            clrScr();
-            console.log("\n Inventory Added");
-            console.log(" ---------------------------------------------------------\n", "\033[32m");
-            console.log(" You Added  " + addQty + " quantity to " + product + "\n");
-            confirmAddStock();
-        }
-    );
-};
-
-function confirmAddStock() {
-    inquirer
-        .prompt([
-            {
-                type: "confirm",
-                message: "Would you like to add more inventory?",
-                name: "confirm",
-                default: true
-            }
-        ]).then(function (continu) {
-            clrScr();
-            if (continu.confirm) {
-                addStock()
-            }
-            else {
-                startSelection();
-            }
-        });
-};
-
-function prompAddProduct() {
-   
-    console.log("\n Add Product");
-    console.log(" ---------------------------------------------------------\n");
-
-    inquirer.prompt([
-        {
-            name: "item",
-            type: "input",
-            message: "Enter Product : "
-        },
-        {
-            name: "dept",
-            type: "list",
-            message: "Enter Department : ",
-            choices: dept_option
-        },
-        {
-            name: "price",
-            type: "input",
-            message: "Enter Price : ",
-            validate: validateNm.validateFloat
-        },
-        {
-            name: "stockQty",
-            type: "input",
-            message: "Enter Stock Quantity : ",
-            validate: validateNm.validateInt
-        }
-
-    ]).then(function (addProduct) {
-        //add item
-        processAddProduct(addProduct);
-    });
-};
-
-function processAddProduct(newProduct) {
-    var newItem = fmtStr.capitalizeString(newProduct.item.trim());
-    var query = connection.query("SELECT * FROM products WHERE product_name=?", [newItem], function (err, res) {
-        if (!err) {
-            if (res.length > 0) {
-                clrScr();
-                console.log("\033[31m", "\n Product " + newItem + " already exists.. Try Again!!", "\x1b[0m\n");
-                prompAddProduct();
-            }
-            else {
-                addProduct(newProduct);
-            }
-        }
-
-    });
-};
-
-function addProduct(newProduct) {
-    var newFmtProduct = fmtStr.capitalizeString(newProduct.item);
-    var query = connection.query(
-        "INSERT INTO products SET ?",
-        {
-            product_name: newFmtProduct,
-            department_name: newProduct.dept,
-            price: newProduct.price,
-            stock_quantity: newProduct.stockQty,
-        },
-        function (err, res) {
-            if (err) { console.log(err) }
-            else {
-                clrScr();
-                console.log("\n", "\033[32m", " product "+newFmtProduct+" added successully!!!", "\x1b[0m\n");
-                startSelection();
-            }
-        }
-    );
-};
-
-function getDepartments() {
-
-    connection.query("SELECT department_name FROM departments ORDER BY department_name", function (err, res) {
-        if (err) throw err;
-        for (var i = 0; i < res.length; i++) {
-
-            dept_option.push(res[i].department_name);
-        }
-
-    });
+	if (integer && (sign === 1)) {
+		return true;
+	} else {
+		return 'Please enter a whole non-zero number.';
+	}
 }
+
+// promptUserPurchase will prompt the user for the item/quantity they would like to purchase
+function promptUserPurchase() {
+	// console.log('___ENTER promptUserPurchase___');
+
+	// Prompt the user to select an item
+	inquirer.prompt([
+		{
+			type: 'input',
+			name: 'item_id',
+			message: 'Please enter the Item ID which you would like to purchase.',
+			validate: validateInput,
+			filter: Number
+		},
+		{
+			type: 'input',
+			name: 'quantity',
+			message: 'How many do you need?',
+			validate: validateInput,
+			filter: Number
+		}
+	]).then(function(input) {
+		// console.log('Customer has selected: \n    item_id = '  + input.item_id + '\n    quantity = ' + input.quantity);
+
+		var item = input.item_id;
+		var quantity = input.quantity;
+
+		// Query db to confirm that the given item ID exists in the desired quantity
+		var queryStr = 'SELECT * FROM products WHERE ?';
+
+		connection.query(queryStr, {item_id: item}, function(err, data) {
+			if (err) throw err;
+
+			// If the user has selected an invalid item ID, data attay will be empty
+			// console.log('data = ' + JSON.stringify(data));
+
+			if (data.length === 0) {
+				console.log('ERROR: Invalid Item ID. Please select a valid Item ID.');
+				displayInventory();
+
+			} else {
+				var productData = data[0];
+
+				// console.log('productData = ' + JSON.stringify(productData));
+				// console.log('productData.stock_quantity = ' + productData.stock_quantity);
+
+				// If the quantity requested by the user is in stock
+				if (quantity <= productData.stock_quantity) {
+					console.log('Congratulations, the product you requested is in stock! Placing order!');
+
+					// Construct the updating query string
+					var updateQueryStr = 'UPDATE products SET stock_quantity = ' + (productData.stock_quantity - quantity) + ' WHERE item_id = ' + item;
+					// console.log('updateQueryStr = ' + updateQueryStr);
+
+					// Update the inventory
+					connection.query(updateQueryStr, function(err, data) {
+						if (err) throw err;
+
+						console.log('Your oder has been placed! Your total is $' + productData.price * quantity);
+						console.log('Thank you for shopping with us!');
+						console.log("\n---------------------------------------------------------------------\n");
+
+						// End the database connection
+						connection.end();
+					})
+				} else {
+					console.log('Sorry, there is not enough product in stock, your order can not be placed as is.');
+					console.log('Please modify your order.');
+					console.log("\n---------------------------------------------------------------------\n");
+
+					displayInventory();
+				}
+			}
+		})
+	})
+}
+
+// displayInventory will retrieve the current inventory from the database and output it to the console
+function displayInventory() {
+	// console.log('___ENTER displayInventory___');
+
+	// Construct the db query string
+	queryStr = 'SELECT * FROM products';
+
+	// Make the db query
+	connection.query(queryStr, function(err, data) {
+		if (err) throw err;
+
+		console.log('Existing Inventory: ');
+		console.log('...................\n');
+
+		var strOut = '';
+		for (var i = 0; i < data.length; i++) {
+			strOut = '';
+			strOut += 'Item ID: ' + data[i].item_id + '  //  ';
+			strOut += 'Product Name: ' + data[i].product_name + '  //  ';
+			strOut += 'Department: ' + data[i].department_name + '  //  ';
+			strOut += 'Price: $' + data[i].price + '\n';
+
+			console.log(strOut);
+		}
+
+	  	console.log("---------------------------------------------------------------------\n");
+
+	  	//Prompt the user for item/quantity they would like to purchase
+	  	promptUserPurchase();
+	})
+}
+
+// runBamazon will execute the main application logic
+function runBamazon() {
+	// console.log('___ENTER runBamazon___');
+
+	// Display the available inventory
+	displayInventory();
+}
+
+// Run the application logic
+runBamazon();
