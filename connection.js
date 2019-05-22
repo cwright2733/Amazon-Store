@@ -11,7 +11,7 @@ var inquirer = require("inquirer");
     user: "root",
 
     // Your password
-    password: "Rangeispuree1!",
+    password: "",
     database: "bamazon"
   });
 
